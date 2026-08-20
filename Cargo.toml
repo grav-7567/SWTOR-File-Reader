@@ -4,8 +4,5 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-compress = "0.2.1"
-csv = "1.4.0"
-flate2 = "1.1.9"
 zlib-rs = "0.6.7"
 zstd = "0.13.3"
