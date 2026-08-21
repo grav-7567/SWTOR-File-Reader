@@ -8,23 +8,22 @@ use zlib_rs::{InflateConfig, ReturnCode, decompress_slice};
 use std::time::Instant;
 
 fn main() {
-    let mut hashmap = HashMap::new();
+    let mut hashmap: HashMap<u64, String> = HashMap::new();
     
     let mut now = Instant::now();
-    if let Ok(lines) = read_lines("") {
+    if let Ok(lines) = read_lines("filenames-live.txt") {
         // Consumes the iterator, returns an (Optional) String
         for line in lines.map_while(Result::ok) {
-            let hash = format(format_args!("{}{}", &line[0..8], &line[9..17]));
-            let hash = u64::from_str_radix(&hash, 16).expect("hash is not base 16");
-            let path = format(format_args!("{}", &line[18..line.len()-9]));
+            let path = line.clone();
+            let hash = hashlittle2(path.as_bytes().to_vec());
             hashmap.insert(hash, path);
         }
     }
     let mut elapsed_time = now.elapsed();
     println!("Loaded hash table in {:.2} s", elapsed_time.as_secs_f32());
 
-    let assets_path = String::from("");
-    let out_root_path = String::from("");
+    let assets_path = String::from("D:/projects/rs/slicing_testing");
+    let out_root_path = String::from("D:/projects/rs/slicing_testing/out");
     let filetype = ArchiveType::LIVE;
 
     now = Instant::now();
@@ -321,4 +320,73 @@ fn _read_u64(filestream: &mut File, is_be: bool) -> u64 {
     else {
         u64::from_le_bytes(buf)
     }
+}
+
+pub trait Hasher {
+    
+}
+
+fn hashlittle2 (str: Vec<u8>) -> u64 {
+    let mut k = &str[..];
+
+    let (mut a, mut b, mut c): (u32, u32, u32) = (0xDEADBEEF + k.len() as u32, 0xDEADBEEF + k.len() as u32, 0xDEADBEEF + k.len() as u32);
+
+    while k.len() > 12 {
+        a = a.wrapping_add( (k[00] as u32) + ((k[01] as u32)<<8) + ((k[02] as u32)<<16) + ((k[03] as u32)<<24) );
+        b = b.wrapping_add( (k[04] as u32) + ((k[05] as u32)<<8) + ((k[06] as u32)<<16) + ((k[07] as u32)<<24) );
+        c = c.wrapping_add( (k[08] as u32) + ((k[09] as u32)<<8) + ((k[10] as u32)<<16) + ((k[11] as u32)<<24) );
+
+        a = a.wrapping_sub(c);
+        a ^= c.rotate_left(4);
+        c = c.wrapping_add(b);
+        b = b.wrapping_sub(a);
+        b ^= a.rotate_left(6);
+        a = a.wrapping_add(c);
+        c = c.wrapping_sub(b);
+        c ^= b.rotate_left(8);
+        b = b.wrapping_add(a);
+
+        a = a.wrapping_sub(c);
+        a ^= c.rotate_left(16);
+        c = c.wrapping_add(b);
+        b = b.wrapping_sub(a);
+        b ^= a.rotate_left(19);
+        a = a.wrapping_add(c);
+        c = c.wrapping_sub(b);
+        c ^= b.rotate_left(4);
+        b = b.wrapping_add(a);
+
+        k = &k[12..];
+    }
+
+    let d = k.len();
+    if d >= 12 { c = c.wrapping_add((k[11] as u32)<<24); }
+    if d >= 11 { c = c.wrapping_add((k[10] as u32)<<16); }
+    if d >= 10 { c = c.wrapping_add((k[9] as u32)<<8);   }
+    if d >= 9  { c = c.wrapping_add( k[8] as u32);       }
+    if d >= 8  { b = b.wrapping_add((k[7] as u32)<<24);  }
+    if d >= 7  { b = b.wrapping_add((k[6] as u32)<<16);  }
+    if d >= 6  { b = b.wrapping_add((k[5] as u32)<<8);   }
+    if d >= 5  { b = b.wrapping_add( k[4] as u32);       }
+    if d >= 4  { a = a.wrapping_add((k[3] as u32)<<24);  }
+    if d >= 3  { a = a.wrapping_add((k[2] as u32)<<16);  }
+    if d >= 2  { a = a.wrapping_add((k[1] as u32)<<8);   }
+    if d >= 1  { a = a.wrapping_add( k[0] as u32);       }
+    if d == 0  { return ((c as u64) << 32) + b as u64;   }
+
+    c ^= b;
+    c = c.wrapping_sub(b.rotate_left(14));
+    a ^= c;
+    a = a.wrapping_sub(c.rotate_left(11));
+    b ^= a;
+    b = b.wrapping_sub(a.rotate_left(25));
+    c ^= b;
+    c = c.wrapping_sub(b.rotate_left(16));
+    a ^= c;
+    a = a.wrapping_sub(c.rotate_left(4));
+    b ^= a;
+    b = b.wrapping_sub(a.rotate_left(14));
+    c ^= b;
+    c = c.wrapping_sub(b.rotate_left(24));
+    return ((b as u64) << 32) + c as u64;
 }
